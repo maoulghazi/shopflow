@@ -37,8 +37,8 @@ jobs:
         run: npm ci
         working-directory: api
 
-      - name: Lint frontend
-        run: npm run lint
+      - name: Type check frontend
+        run: npx tsc --noEmit
         working-directory: frontend
 
       - name: Type check API
