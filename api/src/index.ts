@@ -42,8 +42,11 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: 'Internal server error' })
 })
 
-app.listen(PORT, () => {
-  console.log(`🚀 ShopFlow API running on http://localhost:${PORT}`)
-})
+// Only start server if this file is run directly, not when imported by tests
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 ShopFlow API running on http://localhost:${PORT}`)
+  })
+}
 
 export default app
