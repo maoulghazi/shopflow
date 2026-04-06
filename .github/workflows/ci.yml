@@ -80,11 +80,58 @@ jobs:
         run: npm test
         working-directory: frontend
 
-  # ─── Job 3: Build & Push Docker Images ───────────────────────────
+  # ─── Job 3: E2E Tests ─────────────────────────────────────────────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+
+      - name: Start frontend
+        run: npm run start &
+        working-directory: frontend
+        env:
+          PORT: 3001
+
+      - name: Wait for frontend to be ready
+        run: npx wait-on http://localhost:3001 --timeout 30000
+
+      - name: Run E2E tests
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  # ─── Job 4: Build & Push Docker Images ───────────────────────────
   build:
     name: Build & Push Images
     runs-on: ubuntu-latest
-    needs: test
+    needs: e2e
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     permissions:
@@ -149,7 +196,7 @@ jobs:
   summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [lint, test, build]
+    needs: [lint, test, e2e, build]
     if: always()
 
     steps:
@@ -160,4 +207,5 @@ jobs:
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Lint & Type Check | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Tests | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build & Push | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
